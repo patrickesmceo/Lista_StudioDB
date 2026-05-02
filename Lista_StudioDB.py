@@ -109,42 +109,45 @@ if st.button("🚀 FINALIZAR E ENVIAR PARA CEO"):
     else:
         st.error("Por favor, marque ao menos uma presença.")
 
-# --- NOVO CADASTRO (DIRETO NA PLANILHA ABERTA) ---
+# --- NOVO CADASTRO (VIA LINK PÚBLICO DE EDIÇÃO) ---
 with st.expander("➕ Adicionar Aluna Nova"):
     with st.form("form_nova_aluna", clear_on_submit=True):
         nome_aluna = st.text_input("Nome completo da Aluna:")
         nome_responsavel = st.text_input("Responsável (Fornecedor/Cliente):")
         
-        if st.form_submit_button("Confirmar e Salvar na Planilha"):
+        btn_salvar = st.form_submit_button("Confirmar e Salvar na Planilha")
+        
+        if btn_salvar:
             if nome_aluna and nome_responsavel:
                 try:
-                    # Monta a linha exatamente na ordem das suas colunas
-                    # Ajuste a ordem abaixo se for diferente na sua planilha
-                    nova_aluna_dados = [
-                        f"{nome_aluna} (NOVA)", # Coluna Alunas
-                        nome_responsavel,       # Coluna Fornecedor/Cliente
-                        professora_logada,      # Coluna Professora
-                        horario_sel,            # Coluna Horário
-                        categoria_sel,          # Coluna Sub Categoria
-                        data_aula.strftime('%d/%m/%Y'), # Data
-                        "App_Chamada"           # Origem
+                    # Prepara os dados para a nova linha
+                    nova_linha = [
+                        f"{nome_aluna} (NOVA)", 
+                        nome_responsavel, 
+                        professora_logada, 
+                        horario_sel, 
+                        categoria_sel, 
+                        data_aula.strftime('%d/%m/%Y'),
+                        "App_Chamada"
                     ]
                     
-                    # Usa um método alternativo de escrita para links abertos
+                    # Tentativa de gravação direta via link compartilhado
                     import gspread
-                    # Extrai o ID da sua URL
-                    sheet_id = "1jVov3bjoJXAUUpjj0yx5J98IyDI_RphmmpHZnzZ0x8s"
-                    gc = gspread.provide_automatic_config() # Tenta usar o acesso público
-                    sh = gc.open_by_key(sheet_id)
-                    ws = sh.get_worksheet(0) # Abre a primeira aba
+                    # O ID é a parte entre /d/ e /edit na sua URL
+                    ID_PLANILHA = "1jVov3bjoJXAUUpjj0yx5J98IyDI_RphmmpHZnzZ0x8s"
                     
-                    ws.append_row(nova_aluna_dados)
+                    # Tenta acessar sem credenciais (apenas com o link público)
+                    gc = gspread.oauth() # Tenta usar a sessão do navegador
+                    sh = gc.open_by_key(ID_PLANILHA)
+                    ws = sh.get_worksheet(0) # Primeira aba
+                    ws.append_row(nova_linha)
                     
-                    st.success(f"✅ {nome_aluna} salva com sucesso na planilha!")
+                    st.success(f"✅ {nome_aluna} salva com sucesso!")
                     st.balloons()
                     st.cache_data.clear()
                 except Exception as e:
-                    st.error("O Google ainda está bloqueando a gravação automática.")
-                    st.info("Mesmo aberta, o Google exige que você 'publique' a planilha na web: Arquivo > Compartilhar > Publicar na Web.")
+                    # Se falhar, o Google está exigindo a identificação do robô
+                    st.error("O Google bloqueou a gravação anônima por segurança.")
+                    st.info("Para automação total, o Google exige que o 'robô' do App seja convidado para a planilha via e-mail.")
             else:
-                st.warning("Preencha os campos vazios.")
+                st.warning("Preencha o nome da aluna e do responsável.")

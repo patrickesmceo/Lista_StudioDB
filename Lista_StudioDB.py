@@ -5,45 +5,40 @@ from datetime import datetime
 import urllib.parse
 
 # --- CONFIGURAÇÕES DO STUDIO ---
-# Número da CEO com código do país (55) e DDD (65)
 NUMERO_CEO = "5565996677698"
-URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1jVov3bjoJXAUUpjj0yx5J98IyDI_RphmmpHZnzZ0x8s/edit?gid=0#gid=0"
+URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1jVov3bjoJXAUUpjj0yx5J98IyDI_RphmmpHZnzZ0x8s/edit#gid=0"
 
-# Configuração visual do App
 st.set_page_config(page_title="StudioDB - Chamada Digital", page_icon="🩰", layout="centered")
 
-# Inicializa conexão segura com o Google Sheets
+# Inicializa conexão apenas para LEITURA (Não precisa de Secrets complicadas)
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 @st.cache_data(ttl=60)
 def carregar_dados():
-    """Lê os dados da planilha mestre"""
     return conn.read(spreadsheet=URL_PLANILHA)
 
-# Carregamento dos dados
 df = carregar_dados()
 
-# --- BARRA LATERAL: LOGIN E PRIVACIDADE ---
+# Memória temporária para alunas novas na sessão atual
+if 'alunas_novas' not in st.session_state:
+    st.session_state.alunas_novas = []
+
+# --- BARRA LATERAL ---
 st.sidebar.title("🩰 StudioDB Access")
 lista_professoras = sorted(df['Professora'].unique().tolist())
 professora_logada = st.sidebar.selectbox("Selecione seu nome:", ["Selecionar..."] + lista_professoras)
 
-# Bloqueio de acesso: Só mostra o conteúdo se a professora se identificar
 if professora_logada == "Selecionar...":
     st.title("Sistema de Chamada")
-    st.info("Olá! Por favor, identifique-se na barra lateral para acessar suas turmas e alunas.")
+    st.info("Olá! Identifique-se na barra lateral para acessar suas turmas.")
     st.stop()
 
 # --- INTERFACE PRINCIPAL ---
 st.title(f"Painel: {professora_logada.title()}")
-
-# Seletor de Data para registro histórico
 data_aula = st.date_input("Data da Aula:", datetime.now())
 
-# Filtro de segurança: A professora só enxerga os dados dela
 df_privado = df[df['Professora'] == professora_logada]
 
-# Seleção Dinâmica de Horário e Modalidade (baseado na sua planilha)
 col1, col2 = st.columns(2)
 with col1:
     horarios = sorted(df_privado['Horário'].unique().tolist())
@@ -53,101 +48,70 @@ with col2:
     categorias = df_privado[df_privado['Horário'] == horario_sel]['Sub Categoria'].unique().tolist()
     categoria_sel = st.selectbox("Modalidade:", categorias)
 
-# Filtra a lista nominal de alunas
-turma_final = df_privado[(df_privado['Horário'] == horario_sel) & (df_privado['Sub Categoria'] == categoria_sel)]
-lista_alunas = turma_final['Alunas'].tolist()
+# Junta alunas da planilha + alunas novas cadastradas agora
+turma_planilha = df_privado[(df_privado['Horário'] == horario_sel) & (df_privado['Sub Categoria'] == categoria_sel)]
+lista_fixas = turma_planilha['Alunas'].tolist()
+
+# Filtra alunas novas temporárias para esta aula específica
+novas_aula = [a for a in st.session_state.alunas_novas if a['horario'] == horario_sel and a['categoria'] == categoria_sel]
+lista_completa = lista_fixas + [n['nome'] for n in novas_aula]
 
 # --- ÁREA DA CHAMADA ---
 st.write("---")
 st.subheader(f"Lista de Presença - {data_aula.strftime('%d/%m/%Y')}")
 presencas = []
 
-if not lista_alunas:
+if not lista_completa:
     st.warning("Nenhuma aluna cadastrada para este horário.")
 else:
-    for aluna in lista_alunas:
+    for aluna in lista_completa:
         if st.checkbox(aluna, key=f"check_{aluna}"):
             presencas.append(aluna)
 
-# --- FINALIZAÇÃO E RELATÓRIO WHATSAPP ---
-st.write("---")
+# --- CADASTRO MANUAL (ENVIO VIA WHATSAPP) ---
+with st.expander("➕ Adicionar Aluna Nova (Experimental)"):
+    with st.form("form_nova", clear_on_submit=True):
+        n_aluna = st.text_input("Nome da Aluna:")
+        n_resp = st.text_input("Responsável (Fornecedor/Cliente):")
+        if st.form_submit_button("Adicionar à lista de hoje"):
+            if n_aluna and n_resp:
+                st.session_state.alunas_novas.append({
+                    'nome': f"{n_aluna} (NOVA)",
+                    'responsavel': n_resp,
+                    'horario': horario_sel,
+                    'categoria': categoria_sel
+                })
+                st.success("Adicionada! Agora marque a presença dela acima.")
+                st.rerun()
+
+# --- FINALIZAÇÃO ---
 if st.button("🚀 FINALIZAR E ENVIAR PARA CEO"):
     if presencas:
-        total = len(lista_alunas)
-        qtd = len(presencas)
-        faltas = list(set(lista_alunas) - set(presencas))
-        
-        # Montagem do texto formatado para o WhatsApp
+        # Montagem do Relatório
         mensagem = (
             f"🩰 *CHAMADA DIGITAL - StudioDB*\n\n"
             f"📅 *Data:* {data_aula.strftime('%d/%m/%Y')}\n"
             f"👩‍🏫 *Professora:* {professora_logada}\n"
             f"⏰ *Aula:* {horario_sel} ({categoria_sel})\n"
             f"--------------------------\n"
-            f"✅ *Presentes:* {qtd} de {total}\n"
+            f"✅ *Presentes:* {len(presencas)}\n"
             f"👥 *Alunas:* {', '.join(presencas)}\n"
         )
         
-        if faltas:
-            mensagem += f"\n❌ *Faltas:* {', '.join(faltas)}"
-            
-        # Codificação do link da API do WhatsApp
+        if novas_aula:
+            mensagem += f"\n✨ *CADASTRAR NA PLANILHA:*\n"
+            for n in novas_aula:
+                mensagem += f"• {n['nome']} | Resp: {n['responsavel']}\n"
+
         texto_url = urllib.parse.quote(mensagem)
         link_zap = f"https://api.whatsapp.com/send?phone={NUMERO_CEO}&text={texto_url}"
         
-        st.success("Relatório gerado com sucesso!")
-        
-        # Botão de ação direta
         st.markdown(f'''
             <a href="{link_zap}" target="_blank" style="text-decoration: none;">
-                <div style="background-color: #25D366; color: white; padding: 15px; text-align: center; border-radius: 8px; font-weight: bold; font-size: 16px;">
+                <div style="background-color: #25D366; color: white; padding: 15px; text-align: center; border-radius: 8px; font-weight: bold;">
                     📱 Abrir WhatsApp e Enviar para CEO
                 </div>
             </a>
         ''', unsafe_allow_html=True)
-        st.balloons()
     else:
-        st.error("Por favor, marque ao menos uma presença.")
-
-# --- NOVO CADASTRO (VIA LINK PÚBLICO DE EDIÇÃO) ---
-with st.expander("➕ Adicionar Aluna Nova"):
-    with st.form("form_nova_aluna", clear_on_submit=True):
-        nome_aluna = st.text_input("Nome completo da Aluna:")
-        nome_responsavel = st.text_input("Responsável (Fornecedor/Cliente):")
-        
-        btn_salvar = st.form_submit_button("Confirmar e Salvar na Planilha")
-        
-        if btn_salvar:
-            if nome_aluna and nome_responsavel:
-                try:
-                    # Prepara os dados para a nova linha
-                    nova_linha = [
-                        f"{nome_aluna} (NOVA)", 
-                        nome_responsavel, 
-                        professora_logada, 
-                        horario_sel, 
-                        categoria_sel, 
-                        data_aula.strftime('%d/%m/%Y'),
-                        "App_Chamada"
-                    ]
-                    
-                    # Tentativa de gravação direta via link compartilhado
-                    import gspread
-                    # O ID é a parte entre /d/ e /edit na sua URL
-                    ID_PLANILHA = "1jVov3bjoJXAUUpjj0yx5J98IyDI_RphmmpHZnzZ0x8s"
-                    
-                    # Tenta acessar sem credenciais (apenas com o link público)
-                    gc = gspread.oauth() # Tenta usar a sessão do navegador
-                    sh = gc.open_by_key(ID_PLANILHA)
-                    ws = sh.get_worksheet(0) # Primeira aba
-                    ws.append_row(nova_linha)
-                    
-                    st.success(f"✅ {nome_aluna} salva com sucesso!")
-                    st.balloons()
-                    st.cache_data.clear()
-                except Exception as e:
-                    # Se falhar, o Google está exigindo a identificação do robô
-                    st.error("O Google bloqueou a gravação anônima por segurança.")
-                    st.info("Para automação total, o Google exige que o 'robô' do App seja convidado para a planilha via e-mail.")
-            else:
-                st.warning("Preencha o nome da aluna e do responsável.")
+        st.error("Marque ao menos uma presença.")

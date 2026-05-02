@@ -69,7 +69,7 @@ else:
             presencas.append(aluna)
 
 # --- CADASTRO MANUAL (ENVIO VIA WHATSAPP) ---
-with st.expander("➕ Adicionar Aluna Nova (Experimental)"):
+with st.expander("➕ Adicionar Aluna Nova"):
     with st.form("form_nova", clear_on_submit=True):
         n_aluna = st.text_input("Nome da Aluna:")
         n_resp = st.text_input("Responsável (Fornecedor/Cliente):")

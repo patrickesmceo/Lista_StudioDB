@@ -109,36 +109,42 @@ if st.button("🚀 FINALIZAR E ENVIAR PARA CEO"):
     else:
         st.error("Por favor, marque ao menos uma presença.")
 
-# --- NOVO CADASTRO (COLUNA: Fornecedor/Cliente) ---
+# --- NOVO CADASTRO (DIRETO NA PLANILHA ABERTA) ---
 with st.expander("➕ Adicionar Aluna Nova"):
     with st.form("form_nova_aluna", clear_on_submit=True):
         nome_aluna = st.text_input("Nome completo da Aluna:")
         nome_responsavel = st.text_input("Responsável (Fornecedor/Cliente):")
         
-        btn_salvar = st.form_submit_button("Confirmar e Salvar na Planilha")
-        
-        if btn_salvar:
+        if st.form_submit_button("Confirmar e Salvar na Planilha"):
             if nome_aluna and nome_responsavel:
-                # Criando a nova linha com o nome exato da sua coluna
-                nova_linha = pd.DataFrame([{
-                    "Alunas": f"{nome_aluna} (NOVA)",
-                    "Fornecedor/Cliente": nome_responsavel, # Nome exato da coluna
-                    "Professora": professora_logada,
-                    "Horário": horario_sel,
-                    "Sub Categoria": categoria_sel,
-                    "Data Cadastro": data_aula.strftime('%d/%m/%Y'),
-                    "Origem": "App_Chamada"
-                }])
-                
                 try:
-                    # Adiciona e faz o update na planilha
-                    df_atualizado = pd.concat([df, nova_linha], ignore_index=True)
-                    conn.update(spreadsheet=URL_PLANILHA, data=df_atualizado)
+                    # Monta a linha exatamente na ordem das suas colunas
+                    # Ajuste a ordem abaixo se for diferente na sua planilha
+                    nova_aluna_dados = [
+                        f"{nome_aluna} (NOVA)", # Coluna Alunas
+                        nome_responsavel,       # Coluna Fornecedor/Cliente
+                        professora_logada,      # Coluna Professora
+                        horario_sel,            # Coluna Horário
+                        categoria_sel,          # Coluna Sub Categoria
+                        data_aula.strftime('%d/%m/%Y'), # Data
+                        "App_Chamada"           # Origem
+                    ]
                     
-                    st.success(f"✅ Sucesso! {nome_aluna} cadastrada para {nome_responsavel}.")
+                    # Usa um método alternativo de escrita para links abertos
+                    import gspread
+                    # Extrai o ID da sua URL
+                    sheet_id = "1jVov3bjoJXAUUpjj0yx5J98IyDI_RphmmpHZnzZ0x8s"
+                    gc = gspread.provide_automatic_config() # Tenta usar o acesso público
+                    sh = gc.open_by_key(sheet_id)
+                    ws = sh.get_worksheet(0) # Abre a primeira aba
+                    
+                    ws.append_row(nova_aluna_dados)
+                    
+                    st.success(f"✅ {nome_aluna} salva com sucesso na planilha!")
                     st.balloons()
-                    st.cache_data.clear() # Atualiza a lista de chamada na hora
+                    st.cache_data.clear()
                 except Exception as e:
-                    st.error("Erro ao gravar. Verifique se a planilha está aberta para edição no Google Drive.")
+                    st.error("O Google ainda está bloqueando a gravação automática.")
+                    st.info("Mesmo aberta, o Google exige que você 'publique' a planilha na web: Arquivo > Compartilhar > Publicar na Web.")
             else:
-                st.warning("Preencha o nome da aluna e do responsável.")
+                st.warning("Preencha os campos vazios.")

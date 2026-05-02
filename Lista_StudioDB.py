@@ -109,10 +109,36 @@ if st.button("🚀 FINALIZAR E ENVIAR PARA CEO"):
     else:
         st.error("Por favor, marque ao menos uma presença.")
 
-# --- NOVO CADASTRO (VISUAL) ---
-with st.expander("➕ Notificar Aluna Nova"):
-    nome_novo = st.text_input("Nome da Aluna:")
-    if st.button("Gerar Alerta de Nova Aluna"):
-        if nome_novo:
-            st.info(f"O nome de {nome_novo} será incluído no relatório final para a CEO.")
-            presencas.append(f"{nome_novo} (NOVA)")
+# --- NOVO CADASTRO (COLUNA: Fornecedor/Cliente) ---
+with st.expander("➕ Adicionar Aluna Nova / Experimental"):
+    with st.form("form_nova_aluna", clear_on_submit=True):
+        nome_aluna = st.text_input("Nome completo da Aluna:")
+        nome_responsavel = st.text_input("Responsável (Fornecedor/Cliente):")
+        
+        btn_salvar = st.form_submit_button("Confirmar e Salvar na Planilha")
+        
+        if btn_salvar:
+            if nome_aluna and nome_responsavel:
+                # Criando a nova linha com o nome exato da sua coluna
+                nova_linha = pd.DataFrame([{
+                    "Alunas": f"{nome_aluna} (NOVA)",
+                    "Fornecedor/Cliente": nome_responsavel, # Nome exato da coluna
+                    "Professora": professora_logada,
+                    "Horário": horario_sel,
+                    "Sub Categoria": categoria_sel,
+                    "Data Cadastro": data_aula.strftime('%d/%m/%Y'),
+                    "Origem": "App_Chamada"
+                }])
+                
+                try:
+                    # Adiciona e faz o update na planilha
+                    df_atualizado = pd.concat([df, nova_linha], ignore_index=True)
+                    conn.update(spreadsheet=URL_PLANILHA, data=df_atualizado)
+                    
+                    st.success(f"✅ Sucesso! {nome_aluna} cadastrada para {nome_responsavel}.")
+                    st.balloons()
+                    st.cache_data.clear() # Atualiza a lista de chamada na hora
+                except Exception as e:
+                    st.error("Erro ao gravar. Verifique se a planilha está aberta para edição no Google Drive.")
+            else:
+                st.warning("Preencha o nome da aluna e do responsável.")

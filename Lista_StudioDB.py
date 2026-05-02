@@ -6,7 +6,7 @@ import urllib.parse
 
 # --- CONFIGURAÇÕES DO STUDIO ---
 # Número da CEO com código do país (55) e DDD (65)
-NUMERO_CEO = "5565992402187"
+NUMERO_CEO = "5565996677698"
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1jVov3bjoJXAUUpjj0yx5J98IyDI_RphmmpHZnzZ0x8s/edit?gid=0#gid=0"
 
 # Configuração visual do App

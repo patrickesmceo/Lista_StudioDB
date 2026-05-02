@@ -110,7 +110,7 @@ if st.button("🚀 FINALIZAR E ENVIAR PARA CEO"):
         st.error("Por favor, marque ao menos uma presença.")
 
 # --- NOVO CADASTRO (COLUNA: Fornecedor/Cliente) ---
-with st.expander("➕ Adicionar Aluna Nova / Experimental"):
+with st.expander("➕ Adicionar Aluna Nova"):
     with st.form("form_nova_aluna", clear_on_submit=True):
         nome_aluna = st.text_input("Nome completo da Aluna:")
         nome_responsavel = st.text_input("Responsável (Fornecedor/Cliente):")

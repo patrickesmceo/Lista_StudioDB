@@ -85,7 +85,7 @@ with st.expander("➕ Adicionar Aluna Nova"):
                 st.rerun()
 
 # --- FINALIZAÇÃO ---
-if st.button("🚀 FINALIZAR E ENVIAR PARA CEO"):
+if st.button("🚀 FINALIZAR E ENVIAR PARA ADM"):
     if presencas:
         # Montagem do Relatório
         mensagem = (

@@ -1,4 +1,3 @@
-pandas
 streamlit
-gspread
-gspread-pandas
+pandas
+st-gsheets-connection
